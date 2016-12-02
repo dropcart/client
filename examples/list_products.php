@@ -26,6 +26,7 @@ try {
 	var_dump($categories);
 	
 	// Retrieve a list of active products that are for sale. You can manage these products within the Dropcart management panel.
+	// If you do not supply a category, the top-most category is used by default.
 	$list = $client->getProductListing();
 	var_dump($list);
 

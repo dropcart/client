@@ -4,6 +4,7 @@ namespace Dropcart;
 
 use \Firebase\JWT\JWT;
 use \GuzzleHttp\Message\Request;
+use \GuzzleHttp\Exception\RequestException;
 
 /**
  * Dropcart client access object
@@ -47,7 +48,7 @@ class Client {
 	
 	private function _checkResult($response) {
 		$code = $response->getStatusCode();
-		$this->context[] = ['code' => $code, 'body' => $response->json()];
+		$this->context[] = ['code' => $code, 'body' => (string) $response->getBody()];
 		if ($code == 200 || $code == 201)
 			return;
 		throw new ClientException($this->context, null);
@@ -118,7 +119,7 @@ class Client {
 			$this->public_key = $public_key;
 			$this->country = $country;
 			
-			// Eagerly load categories
+			// Eagerly load categories, so we can choose default category
 			$this->getCategories();
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
@@ -126,6 +127,7 @@ class Client {
 	}
 	
 	private $categories = null;
+	private $default_category;
 	
 	/**
 	 * Retrieves a list of categories.
@@ -137,14 +139,19 @@ class Client {
 	 */
 	public function getCategories()
 	{
+		if ($this->categories != null) return $this->categories;
+		
 		try {
-			if ($this->categories != null) return $this->categories;
-			
 			$request = $this->client->createRequest('GET', $this->_findUrl('categories'));
 			$this->_decorateAuth($request);
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
 			$this->categories = $response->json();
+			
+			if (isset($this->categories['data']) && count($this->categories['data']) > 0) {
+				$this->default_category = $this->categories['data'][0];
+			}
+			
 			return $this->categories;
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
@@ -159,10 +166,21 @@ class Client {
 	 * the account currently authenticated with.
 	 * </p>
 	 */
-	public function getProductListing()
+	public function getProductListing($category = null)
 	{
+		if (is_null($category) && $this->default_category) {
+			$category = $this->default_category;
+		}
+		
+		if (is_int($category)) {
+			$category_id = $category;
+		} else {
+			$category_id = $category['id'];
+		}
+		
 		try {
-			$request = $this->client->createRequest('GET', $this->_findUrl('products'));
+			$request = $this->client->createRequest('GET', $this->_findUrl('products') . "/" . $category_id);
+			$request->getQuery()['show_unavailable_items'] = true;
 			$this->_decorateAuth($request);
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
@@ -183,6 +201,10 @@ class Client {
 		if ($any instanceof ClientException) {
 			return $any;
 		} else {
+			$this->context['last_exception'] = (string) $any;
+			if ($any instanceof RequestException) {
+				$this->context['last_response'] = (string) $any->getResponse()->getBody();
+			}
 			return new ClientException($this->context, $any);
 		}
 	}
