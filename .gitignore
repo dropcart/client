@@ -1,3 +1,5 @@
+# Composer
+vendor/
 # Eclipse
 .settings/
 .project

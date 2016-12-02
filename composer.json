@@ -1,0 +1,13 @@
+{
+    "name": "dropcart/client",
+    "description": "Dropcart API Client Module for PHP.",
+    "keywords": ["client", "dropcart"],
+    "license": "MIT",
+    "homepage": "https://github.com/dropcart/client",
+    "type": "project",
+    "require": {
+        "php": ">=5.4",
+        "guzzlehttp/guzzle": "^5.0",
+        "firebase/php-jwt": "^4.0"
+    }
+}
