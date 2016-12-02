@@ -3,6 +3,8 @@ Dropcart API Client Module
 
 This project comprises the sources of a PHP library for accessing Dropcart. See http://www.dropcart.nl/
 
+For a quick reference to the client class documentation, see [API Client documentation](docs/api.md).
+
 Requirements
 ------------
 
