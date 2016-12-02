@@ -5,8 +5,10 @@ namespace Dropcart;
 /**
  * Dropcart client access object
  * 
+ * <p>
  * The Dropcart Client class represents a stateful connection with the Dropcart API server. Each time you construct an instance,
- * the client must authenticate using a private key. Every method call blocks to perform an HTTP request to the Dropcart servers. 
+ * the client must authenticate using a private key. Every method call blocks to perform an HTTP request to the Dropcart servers.
+ * </p> 
  * 
  * @license MIT
  */
@@ -18,11 +20,17 @@ class Client {
 	/**
 	 * Changes the Dropcart Endpoint URL.
 	 * 
+	 * <p>
 	 * Modify the endpoint URL to which every *new* client instance will connect. All existing client objects
 	 * remain the use the previous endpoint URL. The default value for this method is: `https://api.dropcart.nl`.
+	 * </p>
 	 * 
-	 * @param string $url A valid URL. This method does not perform any validation on the supplied argument, and
-	 *                    failing to set a correct URL will throw errors during the lifetime of a Client object.
+	 * <p>
+	 * The parameter needs to be a valid URL. This method does not perform any validation on the supplied argument, and
+	 * failing to set a correct URL will throw errors during the lifetime of a Client object.
+	 * </p>
+	 * 
+	 * @param string $url
 	 */
 	public static function setEndpoint($url)
 	{
@@ -32,8 +40,10 @@ class Client {
 	/**
 	 * Constructs a new client instance.
 	 * 
+	 * <p>
 	 * Each client will maintain a connection with the Dropcart API server. Only upon initialization of a new
 	 * instance will the globally set endpoint URL be read.
+	 * </p>
 	 * 
 	 * @see Client::setEndpoint Globally set endpoint URL before constructing a Client instance.
 	 */
@@ -45,10 +55,12 @@ class Client {
 	/**
 	 * Initialize the instance by performing the necessary authentication with the Dropcart API server.
 	 * 
+	 * <p>
 	 * Performs an HTTP request to verify the supplied store identifier and private key combination.
+	 * </p>
 	 * 
-	 * @param unknown $store_identifier
-	 * @param unknown $private_key
+	 * @param string $store_identifier
+	 * @param string $private_key
 	 */
 	public function auth($store_identifier, $private_key)
 	{
