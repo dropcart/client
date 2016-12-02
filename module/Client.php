@@ -23,25 +23,31 @@ class Client {
 	
 	private function _findUrl($suffix) {
 		$result = Client::$g_endpoint_url . "/v2/" . $suffix;
-		$this->context['url'] = $result;
+		$this->context[] = ['url' => $result];
 		return $result;
 	}
 	
 	private $client;
 	
 	private $public_key = null;
+	private $country = null;
 	
 	private function _decorateAuth($request) {
+		// Decorate public key
 		$token = [
 				'iss' => $this->public_key
 		];
 		$jwt = JWT::encode($token, $this->public_key);
 		$request->setHeader("Authorization", "Bearer " . $jwt);
+		
+		// Decoreate country of origin
+		$query = $request->getQuery();
+		$query['country'] = $this->country;
 	}
 	
 	private function _checkResult($response) {
 		$code = $response->getStatusCode();
-		$this->context['body'] = $response->json();
+		$this->context[] = ['code' => $code, 'body' => $response->json()];
 		if ($code == 200 || $code == 201)
 			return;
 		throw new ClientException($this->context, null);
@@ -104,12 +110,13 @@ class Client {
 	 * 
 	 * @param string $public_key
 	 */
-	public function auth($public_key)
+	public function auth($public_key, $country)
 	{
 		try {
 			if ($this->public_key != null) return;
 			
 			$this->public_key = $public_key;
+			$this->country = $country;
 			
 			// Eagerly load categories
 			$this->getCategories();
@@ -133,9 +140,9 @@ class Client {
 		try {
 			if ($this->categories != null) return $this->categories;
 			
-			$request = new Request('GET', $this->_findUrl('categories'));
+			$request = $this->client->createRequest('GET', $this->_findUrl('categories'));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1]);
+			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
 			$this->categories = $response->json();
 			return $this->categories;
@@ -155,9 +162,9 @@ class Client {
 	public function getProductListing()
 	{
 		try {
-			$request = new Request('GET', $this->_findUrl('products'));
+			$request = $this->client->createRequest('GET', $this->_findUrl('products'));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1]);
+			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
 			$product_list = $response->json();
 			return $product_list;
