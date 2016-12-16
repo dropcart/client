@@ -34,6 +34,10 @@ class Client {
 	private $country = null;
 	
 	private function _decorateAuth($request) {
+		// Check authenticated
+		if (is_null($this->public_key)) {
+			throw new ClientException();
+		}
 		// Decorate public key
 		$token = [
 				'iss' => $this->public_key
@@ -49,9 +53,10 @@ class Client {
 	private function _checkResult($response) {
 		$code = $response->getStatusCode();
 		$this->context[] = ['code' => $code, 'body' => (string) $response->getBody()];
-		if ($code == 200 || $code == 201)
+		if ($code == 200 || $code == 201) {
 			return;
-		throw new ClientException($this->context, null);
+		}
+		throw new ClientException();
 	}
 	
 	/**
@@ -110,6 +115,7 @@ class Client {
 	 * </p>
 	 * 
 	 * @param string $public_key
+	 * @param string $country
 	 */
 	public function auth($public_key, $country)
 	{
@@ -135,6 +141,11 @@ class Client {
 	 * <p>
 	 * The first time this method is called, makes a blocking request with the Dropcart API servers to
 	 * retrieve the categories related to the authenticated store.
+	 * </p>
+	 * 
+	 * <p>
+	 * Returns an array of categories, one element per category. The category itself is an associative array with the following fields:
+	 * `id`, `image`, `name`, `description`, `meta_description`
 	 * </p>
 	 */
 	public function getCategories()
@@ -174,6 +185,20 @@ class Client {
 	 * Makes a blocking request with the Dropcart API server to retrieve the products associated with
 	 * the account currently authenticated with.
 	 * </p>
+	 * 
+	 * <p>
+	 * An optional category parameter can be supplied, either an integer (category ID) or a category
+	 * as one of the elements returned by the `getCategories` method. If the parameter is not supplied,
+	 * a default category is used. 
+	 * </p>
+	 * 
+	 * <p>
+	 * Returns an array of products, one element for each product. The product itself is an associative array with the summary fields of a product. These fields are:
+	 * `id`, `ean`, `sku`, `shipping_days`, `image`, `price`, `in_stock`, `name`, `description`. See the API documentation for information concering the
+	 * value ranges of these fields. The return value is similar to that of `findProductListing`.
+	 * </p>
+	 * 
+	 * @param mixed $category
 	 */
 	public function getProductListing($category = null)
 	{
@@ -204,6 +229,28 @@ class Client {
 		throw $this->wrapException(new ClientException());
 	}
 	
+	/**
+	 * Retrieves detailed information concerning a single product.
+	 * 
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to retrieve the product information associated with
+	 * the account currently authenticated with.
+	 * </p>
+	 * 
+	 * <p>
+	 * The parameter supplied specifies what product is requested. Either an integer (product ID) or a product
+	 * array as one of the elements returned by `getProductListing` or `findProductListing`. The parameter is
+	 * required, it is an error to not supply its value.
+	 * </p>
+	 * 
+	 * <p>
+	 * Returns a product, which is an associative array. The fields are:
+	 * `id`, `name`, `description`, `ean`, `sku`, `attributes`, `brand`, `images`, `price`, `in_stock`. See the API documentation for information
+	 * concering the value ranges of these fields.
+	 * </p>
+	 * 
+	 * @param mixed $product
+	 */
 	public function getProductInfo($product)
 	{
 		if (is_int($product)) {
@@ -219,11 +266,62 @@ class Client {
 			$this->_decorateAuth($request);
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
-			$product_list = $response->json();
-			return $product_list;
+			$json = $response->json();
+				
+			if (isset($json['data'])) {
+				$product = $json['data'];
+				return $product;
+			}
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
+		throw $this->wrapException(new ClientException());
+	}
+	
+	/**
+	 * Performs a search based on the supplied search critera.
+	 * 
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to retrieve the product information associated with
+	 * the account currently authenticated with.
+	 * </p>
+	 * 
+	 * <p>
+	 * The parameter supplied specifies a free-text search query. The text will be matched with product name, description, ean or sku.
+	 * The parameter is explicitly cast to a string if it is not of that type. Supplying an empty string is an error.
+	 * </p>
+	 * 
+	 * <p>
+	 * Returns an array of products, one element for each product. The product itself is an associative array with the summary fields of a product. These fields are:
+	 * `id`, `ean`, `sku`, `shipping_days`, `image`, `price`, `in_stock`, `name`, `description`. See the API documentation for information concering the
+	 * value ranges of these fields. The return value is similar to that of `getProductListing`.
+	 * </p>
+	 * 
+	 * @param string $query
+	 */
+	public function findProductListing($query) {
+		if (!is_string($query)) {
+			$query = (string) $query;
+		}
+		if (strlen($query) == 0) {
+			throw $this->wrapException(new ClientException());
+		}
+		
+		try {
+			$request = $this->client->createRequest('GET', $this->_findUrl('search') . "/" . urlencode($query));
+			$this->_decorateAuth($request);
+			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$this->_checkResult($response);
+			$json = $response->json();
+		
+			if (isset($json['data'])) {
+				$product_list = $json['data'];
+				return $product_list;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException());
 	}
 	
 	private function wrapException($any)

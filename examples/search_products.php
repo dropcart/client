@@ -11,31 +11,51 @@ $key = "<insery your API key here>"; // KEEP YOUR API KEY SECRET!
 $key = "e5312706be8ae2aba08dcd1b3fb9274a438afdee4cdfe074ff3287c93038ee72";
 Client::setEndpoint("http://api.dropcart.dev");
 
+// Input handling
+$has_input = false;
+if (isset($_POST['query'])) {
+	$has_input = true;
+} else {
+	$_POST['query'] = null;
+}
+
 try {
 
 	// Create a new client object.
 	$client = new Client();
-	
+
 	// Authenticate with Dropcart API server. The public API key can be found in your account details.
 	// You must also supply the country of origin here.
 	$client->auth($key, 'NL');
-	
-	// Retrieve a list of all categories. These can be managed within the Dropcart management panel.
-	$categories = $client->getCategories();
-	var_dump($categories);
-	
-	// Retrieve a list of active products that are for sale. You can manage these products within the Dropcart management panel.
-	// If you do not supply a category, the top-most category is used by default.
-	$products = $client->getProductListing();
-	var_dump($products);
-	
-	foreach ($products as $product) {
-		$product = $client->getProductInfo($product);
-		var_dump($product);
+
+	// Perform a search based on user input.
+	if ($has_input) {
+		$products = $client->findProductListing($_POST['query']);
+	} else {
+		$products = "No search results yet";
 	}
 
 } catch (ClientException $e) {
 	// Always catch exceptions of type ClientException
 	// The context value contains useful information for troubleshooting.
 	var_dump($e->context);
+	return;
 }
+
+?>
+<html>
+<body>
+<form action="search_products.php" method="POST">
+<label for="query">Query:</label> <input type="text" id="query" name="query" value="<?php htmlspecialchars($_POST['query']) ?>" /><br />
+<button type="submit">Search now...</button>
+</form>
+<hr />
+<pre>
+<?php
+
+var_dump($products);
+
+?>
+</pre>
+</body>
+</html>
