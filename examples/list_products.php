@@ -27,8 +27,13 @@ try {
 	
 	// Retrieve a list of active products that are for sale. You can manage these products within the Dropcart management panel.
 	// If you do not supply a category, the top-most category is used by default.
-	$list = $client->getProductListing();
-	var_dump($list);
+	$products = $client->getProductListing();
+	var_dump($products);
+	
+	foreach ($products as $product) {
+		$product = $client->getProductInfo($product);
+		var_dump($product);
+	}
 
 } catch (ClientException $e) {
 	// Always catch exceptions of type ClientException

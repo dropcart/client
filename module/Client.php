@@ -127,7 +127,7 @@ class Client {
 	}
 	
 	private $categories = null;
-	private $default_category;
+	private $default_category = null;
 	
 	/**
 	 * Retrieves a list of categories.
@@ -146,16 +146,25 @@ class Client {
 			$this->_decorateAuth($request);
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
-			$this->categories = $response->json();
+			$json = $response->json();
 			
-			if (isset($this->categories['data']) && count($this->categories['data']) > 0) {
-				$this->default_category = $this->categories['data'][0];
+			if (isset($json['data'])) {
+				$this->categories = $json['data'];
+					
+				if (is_null($this->default_category)) {
+					if (count($this->categories) > 0) {
+						$this->default_category = $this->categories[0];
+					} else {
+						$this->default_category = ['id' => 0];
+					}
+				}
+				
+				return $this->categories;
 			}
-			
-			return $this->categories;
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
+		throw $this->wrapException(new ClientException());
 	}
 	
 	/**
@@ -180,7 +189,33 @@ class Client {
 		
 		try {
 			$request = $this->client->createRequest('GET', $this->_findUrl('products') . "/" . $category_id);
-			$request->getQuery()['show_unavailable_items'] = true;
+			$this->_decorateAuth($request);
+			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$this->_checkResult($response);
+			$json = $response->json();
+			
+			if (isset($json['data'])) {
+				$product_list = $json['data'];
+				return $product_list;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException());
+	}
+	
+	public function getProductInfo($product)
+	{
+		if (is_int($product)) {
+			$product_id = $product;
+		} else if (isset($product['id'])) {
+			$product_id = $product['id'];
+		} else {
+			throw $this->wrapException(new ClientException());
+		}
+		
+		try {
+			$request = $this->client->createRequest('GET', $this->_findUrl('product') . "/" . $product_id);
 			$this->_decorateAuth($request);
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
@@ -191,14 +226,12 @@ class Client {
 		}
 	}
 	
-	public function getProductInfo()
-	{
-		
-	}
-	
 	private function wrapException($any)
 	{
 		if ($any instanceof ClientException) {
+			if (is_null($any->context)) {
+				$any->context = $this->context;
+			}
 			return $any;
 		} else {
 			$this->context['last_exception'] = (string) $any;

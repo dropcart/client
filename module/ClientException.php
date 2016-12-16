@@ -15,7 +15,7 @@ class ClientException extends \Exception {
 	 */
 	public $context;
 	
-	public function __construct($context, $previous) {
+	public function __construct($context = null, $previous = null) {
 		parent::__construct("An error occurred", 0, $previous);
 		$this->context = $context;
 	}
