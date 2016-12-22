@@ -213,7 +213,7 @@ class Client {
 		}
 		
 		try {
-			$request = $this->client->createRequest('GET', $this->_findUrl('products', "/" . $category_id));
+			$request = $this->client->createRequest('GET', $this->_findUrl('category', "/" . $category_id));
 			$this->_decorateAuth($request);
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
@@ -262,14 +262,14 @@ class Client {
 			$this->_checkResult($response);
 			$json = $response->json();
 				
-			if (isset($json['data'])) {
-				$product = $json['data'];
+			if (isset($json['data']) && count($json['data']) == 1) {
+				$product = $json['data'][0];
 				return $product;
 			}
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
-		throw $this->wrapException(new ClientException("Product info has no results"));
+		throw $this->wrapException(new ClientException("Product info has no or too many results"));
 	}
 	
 	private function productToInt($product) {
@@ -563,14 +563,14 @@ class Client {
 			$this->_checkResult($response);
 			$json = $response->json();
 		
-			if (isset($json['data'])) {
-				$transaction = $json['data'];
+			if (isset($json['data']) && count($json['data']) == 1) {
+				$transaction = $json['data'][0];
 				return $transaction;
 			}
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
-		throw $this->wrapException(new ClientException("Transaction creation has no result"));
+		throw $this->wrapException(new ClientException("Transaction creation has no or too many results"));
 	}
 	
 	public function updateTransactionDetails() {
