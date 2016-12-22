@@ -262,8 +262,8 @@ class Client {
 			$this->_checkResult($response);
 			$json = $response->json();
 				
-			if (isset($json['data']) && count($json['data']) == 1) {
-				$product = $json['data'][0];
+			if (isset($json['data'])) {
+				$product = $json['data'];
 				return $product;
 			}
 		} catch (\Exception $any) {
@@ -563,8 +563,8 @@ class Client {
 			$this->_checkResult($response);
 			$json = $response->json();
 		
-			if (isset($json['data']) && count($json['data']) == 1) {
-				$transaction = $json['data'][0];
+			if (isset($json['data'])) {
+				$transaction = $json['data'];
 				return $transaction;
 			}
 		} catch (\Exception $any) {
