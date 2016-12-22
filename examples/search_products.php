@@ -38,7 +38,12 @@ try {
 } catch (ClientException $e) {
 	// Always catch exceptions of type ClientException
 	// The context value contains useful information for troubleshooting.
+	print("<h1>");
+	print($e->getMessage());
+	print("</h1>");
+	print("<pre>");
 	var_dump($e->context);
+	print("</pre>");
 	return;
 }
 
