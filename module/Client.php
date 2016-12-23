@@ -469,11 +469,23 @@ class Client {
 	}
 	
 	private function verifyShoppingBag($bag) {
-		// TODO: verify invariant (no non-positive quantities)
+		// Verify: no non-positive entries
+		foreach ($bag as $pointer) {
+			if ($pointer['product'] < 0) {
+				throw $this->wrapException(new ClientException("Invalid shopping bag entry product identifier"));
+			}
+			if ($pointer['quantity'] <= 0) {
+				throw $this->wrapException(new ClientException("Invalid non-positive shopping bag entry quantity"));
+			}
+		}
 	}
 	
 	private function checkShoppingBag($coding) {
-		// TODO: verify that coding matches regular expression
+		// Verify: coding matches regular expression
+		$re = '/^(?:(?:\d+=\d+)(?:~\d+=\d+)*)?$/m';
+		if (!preg_match($re, $coding)) {
+			throw $this->wrapException(new ClientException("Shopping bag code does not match expression: " . $coding));
+		}
 	}
 	
 	/**
@@ -542,7 +554,10 @@ class Client {
 	 * 
 	 * <p>
 	 * The result of this function call is an associative array, with keys:
-	 * `errors`, `warnings`, `overview`, `status`, `missing_customer_details`, `transaction_id`, `checksum`
+	 * `errors`, `warnings`, `transaction`, `missing_customer_details`, `checksum`, `shopping_bag`.
+	 * The `errors` field is an array of error messages, and `warnings` an array of warnings. Clients SHOULD show error messages to
+	 * web clients, and MUST show warning messages to web clients. The `transaction` field contains a transaction object. The `shopping_bag`
+	 * field contains an updated shopping bag (e.g. items may be removed by created a transaction).
 	 * </p>
 	 * 
 	 * <p>
@@ -562,10 +577,22 @@ class Client {
 			$response = $this->client->send($request, ['timeout' => 1.0]);
 			$this->_checkResult($response);
 			$json = $response->json();
-		
-			if (isset($json['data'])) {
-				$transaction = $json['data'];
-				return $transaction;
+			$result = [];
+			if (isset($json['meta']) && isset($json['meta']['shoppingBag'])) {
+				$result['shopping_bag'] = $json['meta']['shoppingBag'];
+			}
+			if (isset($json['meta']) && isset($json['meta']['warnings'])) {
+				$result['warnings'] = $json['meta']['warnings'];
+			}
+			if (isset($json['meta']) && isset($json['meta']['errors'])) {
+				$result['errors'] = $json['meta']['errors'];
+			}
+			if (isset($json['data']) && count($json['data']) > 0) {
+				$result['transaction'] = $json['data'];
+			}
+			
+			if (count($result) > 0) {
+				return $result;
 			}
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
