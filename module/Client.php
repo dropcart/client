@@ -578,8 +578,8 @@ class Client {
 			$this->_checkResult($response);
 			$json = $response->json();
 			$result = [];
-			if (isset($json['meta']) && isset($json['meta']['shoppingBag'])) {
-				$result['shopping_bag'] = $json['meta']['shoppingBag'];
+			if (isset($json['meta']) && isset($json['meta']['shopping_bag'])) {
+				$result['shopping_bag'] = $json['meta']['shopping_bag'];
 			}
 			if (isset($json['meta']) && isset($json['meta']['warnings'])) {
 				$result['warnings'] = $json['meta']['warnings'];

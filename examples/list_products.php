@@ -24,23 +24,26 @@ try {
 	$categories = $client->getCategories();
 	print("<h1>Categories</h1>");
 	print("<pre>");
-	var_dump($categories);
+	print_r($categories);
 	print("</pre>");
+	flush();
 	
 	// Retrieve a list of active products that are for sale. You can manage these products within the Dropcart management panel.
 	// If you do not supply a category, the top-most category is used by default.
 	$products = $client->getProductListing();
 	print("<h1>Product listing</h1>");
 	print("<pre>");
-	var_dump($products);
+	print_r($products);
 	print("</pre>");
+	flush();
 	
 	foreach ($products as $product) {
 		$product = $client->getProductInfo($product);
 		print("<h1>Individual product</h1>");
 		print("<pre>");
-		var_dump($product);
+		print_r($product);
 		print("</pre>");
+		flush();
 	}
 
 } catch (ClientException $e) {
