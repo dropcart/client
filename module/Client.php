@@ -19,6 +19,7 @@ use \GuzzleHttp\Exception\RequestException;
 class Client {
 	
 	private static $g_endpoint_url = "https://api.dropcart.nl";
+	private static $g_timeout = 5.0;
 	
 	private $context = [];
 	
@@ -155,7 +156,7 @@ class Client {
 		try {
 			$request = $this->client->createRequest('GET', $this->_findUrl('categories', ""));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
 			$this->_checkResult($response);
 			$json = $response->json();
 			
@@ -215,7 +216,7 @@ class Client {
 		try {
 			$request = $this->client->createRequest('GET', $this->_findUrl('category', "/" . $category_id));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
 			$this->_checkResult($response);
 			$json = $response->json();
 			
@@ -258,7 +259,7 @@ class Client {
 		try {
 			$request = $this->client->createRequest('GET', $this->_findUrl('product', "/" . $product_id));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
 			$this->_checkResult($response);
 			$json = $response->json();
 				
@@ -315,7 +316,7 @@ class Client {
 		try {
 			$request = $this->client->createRequest('GET', $this->_findUrl('search', "/" . urlencode($query)));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
 			$this->_checkResult($response);
 			$json = $response->json();
 		
@@ -554,15 +555,15 @@ class Client {
 	 * 
 	 * <p>
 	 * The result of this function call is an associative array, with keys:
-	 * `errors`, `warnings`, `transaction`, `missing_customer_details`, `checksum`, `shopping_bag`.
+	 * `errors`, `warnings`, `transaction`, `reference`, `checksum`, `missing_customer_details` and `shopping_bag`.
 	 * The `errors` field is an array of error messages, and `warnings` an array of warnings. Clients SHOULD show error messages to
 	 * web clients, and MUST show warning messages to web clients. The `transaction` field contains a transaction object. The `shopping_bag`
 	 * field contains an updated shopping bag (e.g. items may be removed by created a transaction).
 	 * </p>
 	 * 
 	 * <p>
-	 * The `status` field determines what transaction methods are valid, i.e. for `"PARTIAL"` it is `updateTransactionDetails` and for `"FINAL"` it is `confirmTransaction`.
-	 * Of these keys, `transaction_id` and `checksum` are required for a next invocation.
+	 * The `status` field determines what transaction methods are valid, i.e. for `"PARTIAL"` it is `updateTransaction` and for `"FINAL"` it is `confirmTransaction`.
+	 * Of these keys, `reference` and `checksum` are required for a next invocation.
 	 * </p>
 	 * 
 	 * @param string $coding
@@ -574,22 +575,10 @@ class Client {
 		try {
 			$request = $this->client->createRequest('POST', $this->_findUrl('order', "/create/" . urlencode($coding)));
 			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => 1.0]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
 			$this->_checkResult($response);
 			$json = $response->json();
-			$result = [];
-			if (isset($json['meta']) && isset($json['meta']['shopping_bag'])) {
-				$result['shopping_bag'] = $json['meta']['shopping_bag'];
-			}
-			if (isset($json['meta']) && isset($json['meta']['warnings'])) {
-				$result['warnings'] = $json['meta']['warnings'];
-			}
-			if (isset($json['meta']) && isset($json['meta']['errors'])) {
-				$result['errors'] = $json['meta']['errors'];
-			}
-			if (isset($json['data']) && count($json['data']) > 0) {
-				$result['transaction'] = $json['data'];
-			}
+			$result = $this->loadTransactionResult($json);
 			
 			if (count($result) > 0) {
 				return $result;
@@ -600,12 +589,97 @@ class Client {
 		throw $this->wrapException(new ClientException("Transaction creation has no or too many results"));
 	}
 	
-	public function updateTransactionDetails() {
-		// TODO
+	/**
+	 * Modify an existing transaction for handling an order.
+	 * 
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to create a transaction associated with the account currently authenticated with.
+	 * The products stored in the shopping bag are used to create an order quote.
+	 * </p>
+	 * 
+	 * <p>
+	 * The result of this function call is an associative array, with keys:
+	 * `errors`, `warnings`, `transaction`, `reference`, `checksum`, `missing_customer_details` and `shopping_bag`.
+	 * The `errors` field is an array of error messages, and `warnings` an array of warnings. Clients SHOULD show error messages to
+	 * web clients, and MUST show warning messages to web clients. The `transaction` field contains a transaction object. The `shopping_bag`
+	 * field contains an updated shopping bag (e.g. items may be removed by created a transaction).
+	 * </p>
+	 * 
+	 * <p>
+	 * The `status` field determines what transaction methods are valid, i.e. for `"PARTIAL"` it is `updateTransaction` and for `"FINAL"` it is `confirmTransaction`.
+	 * Of these keys, `reference` and `checksum` are required for a next invocation.
+	 * </p>
+	 * 
+	 * @param string $coding
+	 * @param string $reference
+	 * @param string $checksum
+	 */
+	public function updateTransaction($coding, $reference, $checksum) {
+		// Round-trip to verify and normalize code
+		$bag = $this->readShoppingBagInternal($coding);
+		$coding = $this->writeShoppingBagInternal($bag);
+		try {
+			$request = $this->client->createRequest('POST', $this->_findUrl('order', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum)));
+			$this->_decorateAuth($request);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$this->_checkResult($response);
+			$json = $response->json();
+			$result = $this->loadTransactionResult($json);
+				
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
 	}
 	
-	public function confirmTransaction() {
-		// TODO
+	private function loadTransactionResult($json) {
+		$result = [];
+		if (isset($json['meta']) && isset($json['meta']['shopping_bag'])) {
+			$result['shopping_bag'] = $json['meta']['shopping_bag'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['reference'])) {
+			$result['reference'] = $json['meta']['reference'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['checksum'])) {
+			$result['checksum'] = $json['meta']['checksum'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['missing_customer_details'])) {
+			$result['missing_customer_details'] = $json['meta']['missing_customer_details'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['warnings'])) {
+			$result['warnings'] = $json['meta']['warnings'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['errors'])) {
+			$result['errors'] = $json['meta']['errors'];
+		}
+		if (isset($json['data']) && count($json['data']) > 0) {
+			$result['transaction'] = $json['data'];
+		}
+		return $result;
+	}
+	
+	public function confirmTransaction($coding, $reference, $checksum) {
+		// Round-trip to verify and normalize code
+		$bag = $this->readShoppingBagInternal($coding);
+		$coding = $this->writeShoppingBagInternal($bag);
+		try {
+			$request = $this->client->createRequest('POST', $this->_findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum)));
+			$this->_decorateAuth($request);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$this->_checkResult($response);
+			$json = $response->json();
+			$result = $this->loadTransactionResult($json);
+		
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
 	}
 	
 	private function wrapException($any)
