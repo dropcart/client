@@ -2,9 +2,10 @@
 
 namespace Dropcart;
 
-use \Firebase\JWT\JWT;
-use \GuzzleHttp\Message\Request;
-use \GuzzleHttp\Exception\RequestException;
+use Psr\Http\Message\RequestInterface;
+use Firebase\JWT\JWT;
+use GuzzleHttp\Psr7\Request;
+use GuzzleHttp\Exception\RequestException;
 
 /**
  * Dropcart client access object
@@ -20,11 +21,19 @@ class Client {
 	
 	private static $g_endpoint_url = "https://api.dropcart.nl";
 	private static $g_timeout = 5.0;
+	private static $g_customer_fields = ["first_name", "last_name", "email", "telephone", "shipping_first_name",
+			"shipping_last_name", "shipping_company", "shipping_address_1", "shipping_address_2", "shipping_city",
+			"shipping_postcode", "shipping_country", "billing_first_name", "billing_last_name", "billing_company",
+			"billing_address_1", "billing_address_2", "billing_city", "billing_postcode", "billing_country"];
 	
 	private $context = [];
 	
-	private function _findUrl($suffix, $postfix) {
+	private function findUrl($suffix, $postfix = "", $query = ['country']) {
 		$result = Client::$g_endpoint_url . "/v2/" . $suffix . $postfix;
+		$result .= "?country=" . urlencode($this->country);
+		foreach ($query as $key => $value) {
+			$result .= "&" . urlencode($key) . "=" . urlencode($value);
+		}
 		$this->context[] = ['url' => $result];
 		return $result;
 	}
@@ -34,24 +43,19 @@ class Client {
 	private $public_key = null;
 	private $country = null;
 	
-	private function _decorateAuth($request) {
-		// Check authenticated
-		if (is_null($this->public_key)) {
-			throw new ClientException("Public-key is not set");
-		}
-		// Decorate public key
-		$token = [
-				'iss' => $this->public_key
-		];
-		$jwt = JWT::encode($token, $this->public_key);
-		$request->setHeader("Authorization", "Bearer " . $jwt);
-		
-		// Decoreate country of origin
-		$query = $request->getQuery();
-		$query['country'] = $this->country;
+	private function authHeaderMiddleware() {
+		$that = $this;
+		return function (callable $handler) use ($that) {
+			return function (RequestInterface $request, array $options) use ($handler, $that) {
+				$token = [ 'iss' => $that->public_key ];
+				$jwt = JWT::encode($token, $that->public_key);
+				$request = $request->withHeader("Authorization", "Bearer " . $jwt);
+				return $handler($request, $options);
+			};
+		};
 	}
 	
-	private function _checkResult($response) {
+	private function checkResult($response) {
 		$code = $response->getStatusCode();
 		$this->context[] = ['code' => $code, 'body' => (string) $response->getBody()];
 		if ($code == 200 || $code == 201) {
@@ -93,7 +97,10 @@ class Client {
 	public function __construct()
 	{
 		try {
-			$this->client = new \GuzzleHttp\Client();
+			$stack = new \GuzzleHttp\HandlerStack();
+			$stack->setHandler(\GuzzleHttp\choose_handler());
+			$stack->push($this->authHeaderMiddleware());
+			$this->client = new \GuzzleHttp\Client(['handler' => $stack]);
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
@@ -154,11 +161,10 @@ class Client {
 		if ($this->categories != null) return $this->categories;
 		
 		try {
-			$request = $this->client->createRequest('GET', $this->_findUrl('categories', ""));
-			$this->_decorateAuth($request);
+			$request = new Request('GET', $this->findUrl('categories'));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
 			
 			if (isset($json['data']) && count($json['data']) > 0) {
 				$this->categories = $json['data'];
@@ -214,11 +220,10 @@ class Client {
 		}
 		
 		try {
-			$request = $this->client->createRequest('GET', $this->_findUrl('category', "/" . $category_id));
-			$this->_decorateAuth($request);
+			$request = new Request('GET', $this->findUrl('category', "/" . $category_id));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
 			
 			if (isset($json['data'])) {
 				$product_list = $json['data'];
@@ -257,11 +262,10 @@ class Client {
 	{
 		$product_id = $this->productToInt($product);
 		try {
-			$request = $this->client->createRequest('GET', $this->_findUrl('product', "/" . $product_id));
-			$this->_decorateAuth($request);
+			$request = new Request('GET', $this->findUrl('product', "/" . $product_id));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
 				
 			if (isset($json['data'])) {
 				$product = $json['data'];
@@ -314,11 +318,10 @@ class Client {
 		}
 		
 		try {
-			$request = $this->client->createRequest('GET', $this->_findUrl('search', "/" . urlencode($query)));
-			$this->_decorateAuth($request);
+			$request = new Request('GET', $this->findUrl('search', "/" . urlencode($query)));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
 		
 			if (isset($json['data'])) {
 				$product_list = $json['data'];
@@ -573,11 +576,10 @@ class Client {
 		$bag = $this->readShoppingBagInternal($coding);
 		$coding = $this->writeShoppingBagInternal($bag);
 		try {
-			$request = $this->client->createRequest('POST', $this->_findUrl('order', "/create/" . urlencode($coding)));
-			$this->_decorateAuth($request);
+			$request = new Request('POST', $this->findUrl('order', "/create/" . urlencode($coding)));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
 			
 			if (count($result) > 0) {
@@ -598,6 +600,14 @@ class Client {
 	 * </p>
 	 * 
 	 * <p>
+	 * The `coding` input parameter SHOULD be the same shopping bag as used when creating the transaction. If either the client has modified
+	 * the shopping bag, or the server can no longer give a quote for the supplied shopping bag, warnings will be issued.<br />
+	 * The `reference` and `checksum` parameter are given by the result of `createTransaction` or a previous invocation of `updateTransaction` and must be supplied verbatim.<br />
+	 * The `customerDetails` field is an associative array, containing fields as specified by `missing_customer_details`. The fields which
+	 * are required are necessary to supply, the optional fields can be left out.
+	 * </p>
+	 * 
+	 * <p>
 	 * The result of this function call is an associative array, with keys:
 	 * `errors`, `warnings`, `transaction`, `reference`, `checksum`, `missing_customer_details` and `shopping_bag`.
 	 * The `errors` field is an array of error messages, and `warnings` an array of warnings. Clients SHOULD show error messages to
@@ -614,18 +624,72 @@ class Client {
 	 * @param string $reference
 	 * @param string $checksum
 	 */
-	public function updateTransaction($coding, $reference, $checksum) {
+	public function updateTransaction($coding, $reference, $checksum, $customerDetails) {
+		// Round-trip to verify and normalize code
+		$bag = $this->readShoppingBagInternal($coding);
+		$coding = $this->writeShoppingBagInternal($bag);
+		// Verify customer details
+		$postData = [];
+		foreach (self::$g_customer_fields as $field) {
+			if (isset($customerDetails[$field])) {
+				$postData[$field] = $customerDetails[$field];
+			}
+		}
+		try {
+			$url = $this->findUrl('order', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
+			$request = new Request('POST', $url);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'form_params' => $postData]);
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
+			$result = $this->loadTransactionResult($json);
+				
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
+	}
+	
+	/**
+	 * Confirm a transaction for handling an order. This call MUST only be called when the Web client consents with the order.
+	 *
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to create a transaction associated with the account currently authenticated with.
+	 * The products stored in the shopping bag are used to create an order quote.
+	 * </p>
+	 *
+	 * <p>
+	 * The `coding` input parameter SHOULD be the same shopping bag as used when creating the transaction. If either the client has modified
+	 * the shopping bag, or the server can no longer give a quote for the supplied shopping bag, warnings will be issued.<br />
+	 * The `reference` and `checksum` parameter are given by the result of `createTransaction` or `updateTransaction` and must be supplied verbatim.
+	 * </p>
+	 *
+	 * <p>
+	 * The result of this function call is an associative array, with keys:
+	 * `errors`, `warnings`, `redirect`.<br />
+	 * Only if `errors` and `warnings` are empty, will the `redirect` field be defined. Otherwise, the result is the same as performing a
+	 * `updateTransaction` with the previously supplied customer details. If `redirect` is defined it will contain a URI. The Web client MUST be
+	 * redirected to the URI, unmodified.
+	 * </p>
+	 *
+	 * @param string $coding
+	 * @param string $reference
+	 * @param string $checksum
+	 */
+	public function confirmTransaction($coding, $reference, $checksum) {
 		// Round-trip to verify and normalize code
 		$bag = $this->readShoppingBagInternal($coding);
 		$coding = $this->writeShoppingBagInternal($bag);
 		try {
-			$request = $this->client->createRequest('POST', $this->_findUrl('order', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum)));
-			$this->_decorateAuth($request);
+			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
+			$request = new Request('POST', $url);
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
-				
+	
 			if (count($result) > 0) {
 				return $result;
 			}
@@ -655,31 +719,13 @@ class Client {
 		if (isset($json['meta']) && isset($json['meta']['errors'])) {
 			$result['errors'] = $json['meta']['errors'];
 		}
+		if (isset($json['meta']) && isset($json['meta']['redirect'])) {
+			$result['redirect'] = $json['meta']['redirect'];
+		}
 		if (isset($json['data']) && count($json['data']) > 0) {
 			$result['transaction'] = $json['data'];
 		}
 		return $result;
-	}
-	
-	public function confirmTransaction($coding, $reference, $checksum) {
-		// Round-trip to verify and normalize code
-		$bag = $this->readShoppingBagInternal($coding);
-		$coding = $this->writeShoppingBagInternal($bag);
-		try {
-			$request = $this->client->createRequest('POST', $this->_findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum)));
-			$this->_decorateAuth($request);
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
-			$this->_checkResult($response);
-			$json = $response->json();
-			$result = $this->loadTransactionResult($json);
-		
-			if (count($result) > 0) {
-				return $result;
-			}
-		} catch (\Exception $any) {
-			throw $this->wrapException($any);
-		}
-		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
 	}
 	
 	private function wrapException($any)

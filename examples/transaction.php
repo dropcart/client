@@ -42,6 +42,7 @@ try {
 	print("<pre>");
 	print_r($client->readShoppingBag($bagCode));
 	print("</pre>");
+	flush();
 	
 	// Create a transaction
 	print("<h1>2. Constructing transaction:</h1>");
@@ -49,6 +50,43 @@ try {
 	$transaction = $client->createTransaction($bagCode);
 	print_r($transaction);
 	print("</pre>");
+	flush();
+	
+	if (count($transaction['errors']) == 0) {
+		print("<h1>3. Updating transaction:</h1>");
+		// Update transaction with customer details
+		$details['first_name'] = "My First Name";
+		$details['last_name'] = "Example";
+		$details['email'] = "m.example@example.com";
+		$details['telephone'] = "+316 123 123 45";
+		$details['shipping_first_name'] = $details['first_name'];
+		$details['shipping_last_name'] = $details['last_name'];
+		$details['shipping_address_1'] = "Prof. van der Waalsstraat 1";
+		$details['shipping_city'] = "Alkmaar";
+		$details['shipping_postcode'] = "1234AB";
+		$details['shipping_country'] = "Nederland";
+		$details['billing_first_name'] = $details['shipping_first_name'];
+		$details['billing_last_name'] = $details['shipping_last_name'];
+		$details['billing_address_1'] = $details['shipping_address_1'];
+		$details['billing_city'] = $details['shipping_city'];
+		$details['billing_postcode'] = $details['shipping_postcode'];
+		$details['billing_country'] = $details['shipping_country'];
+		print("<pre>");
+		$transaction = $client->updateTransaction($bagCode, $transaction['reference'], $transaction['checksum'], $details);
+		print_r($transaction);
+		print("</pre>");
+		flush();
+		
+		if ($transaction['transaction']['system_status'] == "FINAL") {
+			// Perform confirmation
+			print("<h1>4. Confirming transaction:</h1>");
+			print("<pre>");
+			$transaction = $client->confirmTransaction($bagCode, $transaction['reference'], $transaction['checksum']);
+			print_r($transaction);
+			print("</pre>");
+			flush();
+		}
+	}
 
 } catch (ClientException $e) {
 	// Always catch exceptions of type ClientException
