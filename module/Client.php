@@ -20,7 +20,7 @@ use GuzzleHttp\Exception\RequestException;
 class Client {
 	
 	private static $g_endpoint_url = "https://api.dropcart.nl";
-	private static $g_timeout = 5.0;
+	private static $g_timeout = 30.0;
 	private static $g_customer_fields = ["first_name", "last_name", "email", "telephone", "shipping_first_name",
 			"shipping_last_name", "shipping_company", "shipping_address_1", "shipping_address_2", "shipping_city",
 			"shipping_postcode", "shipping_country", "billing_first_name", "billing_last_name", "billing_company",
@@ -220,7 +220,7 @@ class Client {
 		}
 		
 		try {
-			$request = new Request('GET', $this->findUrl('category', "/" . $category_id));
+			$request = new Request('GET', $this->findUrl('products', "/" . $category_id));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
@@ -738,7 +738,12 @@ class Client {
 		} else {
 			$this->context['last_exception'] = (string) $any;
 			if ($any instanceof RequestException) {
-				$this->context['last_response'] = (string) $any->getResponse()->getBody();
+				$response = $any->getResponse();
+				if ($response) {
+					$this->context['last_response'] = (string) $reponse->getBody();
+				} else {
+					$this->context['last_response'] = "Unknown";
+				}
 			}
 			return new ClientException($this->context, $any);
 		}

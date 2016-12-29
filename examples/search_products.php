@@ -42,7 +42,7 @@ try {
 	print($e->getMessage());
 	print("</h1>");
 	print("<pre>");
-	var_dump($e->context);
+	print_r($e->context);
 	print("</pre>");
 	return;
 }
@@ -58,7 +58,7 @@ try {
 <pre>
 <?php
 
-var_dump($products);
+print_r($products);
 
 ?>
 </pre>

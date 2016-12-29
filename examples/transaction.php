@@ -34,7 +34,7 @@ try {
 		die("Example does not work without products for sale.");
 	}
 	if (count($products) >= 2) {
-		$bagCode = $client->addShoppingBag($bagCode, $products[1]); // Add another product
+		$bagCode = $client->addShoppingBag($bagCode, $products[1], 2); // Add another product twice
 	}
 	
 	// Check the current bag:
