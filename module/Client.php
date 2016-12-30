@@ -31,7 +31,7 @@ class Client {
 	
 	private $context = [];
 	
-	private function findUrl($suffix, $postfix = "", $query = ['country']) {
+	private function findUrl($suffix, $postfix = "", $query = []) {
 		$result = Client::$g_endpoint_url . "/v2/" . $suffix . $postfix;
 		$result .= "?country=" . urlencode($this->country);
 		foreach ($query as $key => $value) {
