@@ -92,10 +92,10 @@ class Client {
 	 */
 	public static function instance()
 	{
-		if (!$g_instance) {
-			$g_instance = new Client();
+		if (!Client::$g_instance) {
+			Client::$g_instance = new Client();
 		}
-		return $g_instance;
+		return Client::$g_instance;
 	}
 	
 	/**
