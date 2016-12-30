@@ -19,6 +19,8 @@ use GuzzleHttp\Exception\RequestException;
  */
 class Client {
 	
+	private static $g_instance = null;
+	
 	private static $g_endpoint_url = "https://api.dropcart.nl";
 	private static $g_timeout = 60.0;
 	private static $g_connect_timeout = 30.0;
@@ -83,6 +85,17 @@ class Client {
 	public static function setEndpoint($url)
 	{
 		Client::$g_endpoint_url = $url;
+	}
+	
+	/**
+	 * Single shared instance of a client.
+	 */
+	public static function instance()
+	{
+		if (!$g_instance) {
+			$g_instance = new Client();
+		}
+		return $g_instance;
 	}
 	
 	/**
