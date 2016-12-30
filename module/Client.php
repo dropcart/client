@@ -20,7 +20,8 @@ use GuzzleHttp\Exception\RequestException;
 class Client {
 	
 	private static $g_endpoint_url = "https://api.dropcart.nl";
-	private static $g_timeout = 30.0;
+	private static $g_timeout = 60.0;
+	private static $g_connect_timeout = 30.0;
 	private static $g_customer_fields = ["first_name", "last_name", "email", "telephone", "shipping_first_name",
 			"shipping_last_name", "shipping_company", "shipping_address_1", "shipping_address_2", "shipping_city",
 			"shipping_postcode", "shipping_country", "billing_first_name", "billing_last_name", "billing_company",
@@ -162,7 +163,7 @@ class Client {
 		
 		try {
 			$request = new Request('GET', $this->findUrl('categories'));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			
@@ -221,7 +222,7 @@ class Client {
 		
 		try {
 			$request = new Request('GET', $this->findUrl('products', "/" . $category_id));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			
@@ -263,7 +264,7 @@ class Client {
 		$product_id = $this->productToInt($product);
 		try {
 			$request = new Request('GET', $this->findUrl('product', "/" . $product_id));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 				
@@ -319,7 +320,7 @@ class Client {
 		
 		try {
 			$request = new Request('GET', $this->findUrl('search', "/" . urlencode($query)));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 		
@@ -357,7 +358,7 @@ class Client {
 	public function addShoppingBag($coding, $product, $quantity = 1) {
 		$product_id = $this->productToInt($product);
 		if ($quantity <= 0) {
-			throw $this->wrapException(new ClientException("Non-positive quantity not allowed"));
+			throw $this->wrapException(new ClientException("Non-positive quantity not allowed: " . $quantity));
 		}
 		$bag = $this->readShoppingBagInternal($coding);
 		$bag[] = [
@@ -577,7 +578,7 @@ class Client {
 		$coding = $this->writeShoppingBagInternal($bag);
 		try {
 			$request = new Request('POST', $this->findUrl('order', "/create/" . urlencode($coding)));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
@@ -638,7 +639,7 @@ class Client {
 		try {
 			$url = $this->findUrl('order', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
 			$request = new Request('POST', $url);
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'form_params' => $postData]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout, 'form_params' => $postData]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
@@ -685,7 +686,7 @@ class Client {
 		try {
 			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
 			$request = new Request('POST', $url);
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout]);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);

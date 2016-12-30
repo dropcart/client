@@ -29,12 +29,17 @@ try {
 	$bagCode = ""; // empty string is empty shopping bag
 	
 	if (count($products) >= 1) {
-		$bagCode = $client->addShoppingBag($bagCode, $products[0]); // Add one product
+		// Select a random number of products
+		$num = rand(1, 5);
+		for ($acc = 0; $acc < $num; $acc++) {
+			// Select a random product
+			$index = rand(0, count($products) - 1);
+			// Choose random quantity
+			$quantity = (int) (rand(1, 50) / rand(1, 5));
+			$bagCode = $client->addShoppingBag($bagCode, $products[$index], $quantity);
+		}
 	} else {
 		die("Example does not work without products for sale.");
-	}
-	if (count($products) >= 2) {
-		$bagCode = $client->addShoppingBag($bagCode, $products[1], 2); // Add another product twice
 	}
 	
 	// Check the current bag:
