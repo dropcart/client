@@ -378,7 +378,7 @@ class Client {
 				'product' => $product_id,
 				'quantity' => $quantity
 		];
-		$this->normalizeShoppingBag($bag);
+		$result = $this->normalizeShoppingBag($bag);
 		return $this->writeShoppingBagInternal($bag);
 	}
 	
@@ -433,8 +433,9 @@ class Client {
 					'quantity' => -$quantity
 			];
 			// Normalization removes non-positive occurrences
-			$this->normalizeShoppingBag($bag);
 		}
+		$bag = $this->normalizeShoppingBag($bag);
+		$this->verifyShoppingBag($bag);
 		return $this->writeShoppingBagInternal($bag);
 	}
 	
@@ -455,7 +456,7 @@ class Client {
 			];
 			$result[] = $subresult;
 		}
-		$this->normalizeShoppingBag($result);
+		$result = $this->normalizeShoppingBag($result);
 		$this->verifyShoppingBag($result);
 		return $result;
 	}
@@ -463,27 +464,35 @@ class Client {
 	private function normalizeShoppingBag($bag) {
 		// Normalize: collapse multiple products quantities by sum
 		$keys = [];
+		$delete = [];
 		// We let first occurring elements survive
 		foreach ($bag as $key => $pointer) {
 			$product_id = $this->productToInt($pointer['product']);
 			if (isset($keys[$product_id])) {
 				// Update previous element in array
 				$bag[$keys[$product_id]]['quantity'] += (int) $pointer['quantity'];
+				// Delete current element in array
+				$delete[] = $key;
 			} else {
 				$keys[$product_id] = $key;
 			}
 		}
+		// Remove only after full iteration
+		foreach ($delete as $key) {
+			unset($bag[$key]);
+		}
 		// Normalize: remove non-positive quantities
-		$keys = [];
+		$delete = [];
 		foreach ($bag as $key => $pointer) {
 			if ($pointer['quantity'] <= 0) {
-				$keys[] = $key;
+				$delete[] = $key;
 			}
 		}
 		// Remove only after full iteration
-		foreach ($keys as $key) {
+		foreach ($delete as $key) {
 			unset($bag[$key]);
 		}
+		return $bag;
 	}
 	
 	private function verifyShoppingBag($bag) {
