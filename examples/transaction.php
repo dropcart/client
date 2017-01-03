@@ -58,8 +58,8 @@ try {
 	flush();
 	
 	if (count($transaction['errors']) == 0) {
-		print("<h1>3. Updating transaction:</h1>");
 		// Update transaction with customer details
+		print("<h1>3. Updating transaction:</h1>");
 		$details['first_name'] = "My First Name";
 		$details['last_name'] = "Example";
 		$details['email'] = "m.example@example.com";
@@ -82,9 +82,17 @@ try {
 		print("</pre>");
 		flush();
 		
+		// Retrieve transaction
+		print("<h1>4. Retrieving transaction:</h1>");
+		print("<pre>");
+		$transaction = $client->getTransaction($bagCode, $transaction['reference'], $transaction['checksum']);
+		print_r($transaction);
+		print("</pre>");
+		flush();
+		
 		if ($transaction['transaction']['system_status'] == "FINAL") {
 			// Perform confirmation
-			print("<h1>4. Confirming transaction:</h1>");
+			print("<h1>5. Confirming transaction:</h1>");
 			print("<pre>");
 			$transaction = $client->confirmTransaction($bagCode, $transaction['reference'], $transaction['checksum']);
 			print_r($transaction);

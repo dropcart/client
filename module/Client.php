@@ -594,13 +594,24 @@ class Client {
 	 * 
 	 * @param string $coding
 	 */
-	public function createTransaction($coding) {
+	public function createTransaction($coding, $customerDetails = []) {
 		// Round-trip to verify and normalize code
 		$bag = $this->readShoppingBagInternal($coding);
 		$coding = $this->writeShoppingBagInternal($bag);
+		// Verify customer details
+		$postData = [];
+		foreach (self::$g_customer_fields as $field) {
+			if (isset($customerDetails[$field])) {
+				$postData[$field] = $customerDetails[$field];
+			}
+		}
 		try {
 			$request = new Request('POST', $this->findUrl('order', "/create/" . urlencode($coding)));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'form_params' => $postData
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
@@ -612,6 +623,44 @@ class Client {
 			throw $this->wrapException($any);
 		}
 		throw $this->wrapException(new ClientException("Transaction creation has no or too many results"));
+	}
+	
+	/**
+	 * Retrieve an existing transaction by reference and checksum.
+	 * 
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to retrieve a transaction associated with the account currently authenticated with.
+	 * The products stored in the shopping bag are used to create an order quote.
+	 * </p>
+	 * 
+	 * <p>
+	 * The result of this function call is similar to `updateTransaction` or `createTransaction`, but will not modify an existing transaction.
+	 * This method is useful for implementing a stateless Dropcart client.
+	 * </p>
+	 * 
+	 * @param string $coding
+	 * @param string $reference
+	 * @param string $checksum
+	 */
+	public function getTransaction($coding, $reference, $checksum) {
+		try {
+			$url = $this->findUrl('order', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
+			$request = new Request('GET', $url);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout
+			]);
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
+			$result = $this->loadTransactionResult($json);
+		
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("Transaction retrieval has no or too many results"));
 	}
 	
 	/**
@@ -661,7 +710,11 @@ class Client {
 		try {
 			$url = $this->findUrl('order', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
 			$request = new Request('POST', $url);
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout, 'form_params' => $postData]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'form_params' => $postData
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
@@ -735,6 +788,9 @@ class Client {
 		}
 		if (isset($json['meta']) && isset($json['meta']['missing_customer_details'])) {
 			$result['missing_customer_details'] = $json['meta']['missing_customer_details'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['customer_details'])) {
+			$result['customer_details'] = $json['meta']['customer_details'];
 		}
 		if (isset($json['meta']) && isset($json['meta']['warnings'])) {
 			$result['warnings'] = $json['meta']['warnings'];
