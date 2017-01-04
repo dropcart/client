@@ -817,7 +817,7 @@ class Client {
 	 */
 	public function statusTransaction($reference, $checksum) {
 		try {
-			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($checksum));
+			$url = $this->findUrl('status', "/" . urlencode($reference) . "/" . urlencode($checksum));
 			$request = new Request('GET', $url);
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
