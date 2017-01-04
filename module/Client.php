@@ -630,7 +630,10 @@ class Client {
 	 * 
 	 * <p>
 	 * Makes a blocking request with the Dropcart API server to retrieve a transaction associated with the account currently authenticated with.
-	 * The products stored in the shopping bag are used to create an order quote.
+	 * The products stored in the shopping bag are used to create an order quote.<br />
+	 * This method is only defined for use during the order process for PARTIAL and FINAL quotes. If the transaction is already
+	 * CONFIRMED or PAYED, this method throws an exception. Instead, `statusTransaction` should be called to retrieve the current status of the
+	 * transaction: that method will not retrieve all information, but only relevant for checking the result of a transaction after it .
 	 * </p>
 	 * 
 	 * <p>
@@ -732,7 +735,7 @@ class Client {
 	 * Confirm a transaction for handling an order. This call MUST only be called when the Web client consents with the order.
 	 *
 	 * <p>
-	 * Makes a blocking request with the Dropcart API server to create a transaction associated with the account currently authenticated with.
+	 * Makes a blocking request with the Dropcart API server to confirm a transaction associated with the account currently authenticated with.
 	 * The products stored in the shopping bag are used to create an order quote.
 	 * </p>
 	 *
@@ -779,7 +782,55 @@ class Client {
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
-		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
+		throw $this->wrapException(new ClientException("Transaction confirm has no or too many results"));
+	}
+	
+	/**
+	 * Retrieve the status of a transaction after an order has been confirmed.
+	 *
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to retrieve status of a transaction associated with the account currently authenticated with.
+	 * </p>
+	 *
+	 * <p>
+	 * The `reference` and `checksum` parameter are given by the result of `createTransaction` or `updateTransaction` and must be supplied verbatim.<br />
+	 * Note that the `checksum` is supplied for verification.
+	 * </p>
+	 *
+	 * <p>
+	 * The result of this function call is an associative array, with keys:
+	 * `status`.<br />
+	 * The `status` field contains either<br/>
+	 * `PARTIAL` if the order is not yet complete (missing customer details),<br/>
+	 * `FINAL` if the order is complete but not yet confirmed,<br/>
+	 * `CONFIRMED` if the transaction is confirmed but not yet payed,<br/>
+	 * and `PAYED` if the transaction is payed.
+	 * </p>
+	 * 
+	 * <p>
+	 * If this method results in an exception, all state on the client should be released: no reference, checksum or shopping bag SHOULD be retained
+	 * after such an exception.
+	 * </p>
+	 * 
+	 * @param unknown $reference
+	 * @param unknown $checksum
+	 */
+	public function statusTransaction($reference, $checksum) {
+		try {
+			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($checksum));
+			$request = new Request('GET', $url);
+			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
+			$result = $this->loadTransactionResult($json);
+		
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("Transaction status has no or too many results"));
 	}
 	
 	private function loadTransactionResult($json) {
@@ -807,6 +858,9 @@ class Client {
 		}
 		if (isset($json['meta']) && isset($json['meta']['redirect'])) {
 			$result['redirect'] = $json['meta']['redirect'];
+		}
+		if (isset($json['meta']) && isset($json['meta']['status'])) {
+			$result['status'] = $json['meta']['status'];
 		}
 		if (isset($json['data']) && count($json['data']) > 0) {
 			$result['transaction'] = $json['data'];
