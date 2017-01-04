@@ -739,29 +739,36 @@ class Client {
 	 * <p>
 	 * The `coding` input parameter SHOULD be the same shopping bag as used when creating the transaction. If either the client has modified
 	 * the shopping bag, or the server can no longer give a quote for the supplied shopping bag, warnings will be issued.<br />
-	 * The `reference` and `checksum` parameter are given by the result of `createTransaction` or `updateTransaction` and must be supplied verbatim.
+	 * The `reference` and `checksum` parameter are given by the result of `createTransaction` or `updateTransaction` and must be supplied verbatim.<br />
+	 * The `returnURL` is an absolute URL to which the client is redirected after performing a payment.
 	 * </p>
 	 *
 	 * <p>
 	 * The result of this function call is an associative array, with keys:
 	 * `errors`, `warnings`, `redirect`.<br />
 	 * Only if `errors` and `warnings` are empty, will the `redirect` field be defined. Otherwise, the result is the same as performing a
-	 * `updateTransaction` with the previously supplied customer details. If `redirect` is defined it will contain a URI. The Web client MUST be
-	 * redirected to the URI, unmodified.
+	 * `updateTransaction` with the previously supplied customer details. If `redirect` is defined it will contain a URL. The Web client MUST be
+	 * redirected to the URL, unmodified. After the payment has been performed, the Web client will be redirected back to `returnURL`.
 	 * </p>
 	 *
 	 * @param string $coding
 	 * @param string $reference
 	 * @param string $checksum
+	 * @param string $returnURL
 	 */
-	public function confirmTransaction($coding, $reference, $checksum) {
+	public function confirmTransaction($coding, $reference, $checksum, $returnURL) {
 		// Round-trip to verify and normalize code
 		$bag = $this->readShoppingBagInternal($coding);
 		$coding = $this->writeShoppingBagInternal($bag);
+		$postData = ['return_url' => $returnURL];
 		try {
 			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
 			$request = new Request('POST', $url);
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'form_params' => $postData
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
