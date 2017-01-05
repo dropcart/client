@@ -221,7 +221,7 @@ class Client {
 	 * 
 	 * @param mixed $category
 	 */
-	public function getProductListing($category = null)
+	public function getProductListing($category = null, $page = null)
 	{
 		if (is_null($category) && $this->default_category) {
 			$category = $this->default_category;
@@ -233,15 +233,23 @@ class Client {
 			$category_id = $category['id'];
 		}
 		
+		$query = [];
+		if ($page) $query['page'] = $page;
+		
 		try {
-			$request = new Request('GET', $this->findUrl('products', "/" . $category_id));
+			$request = new Request('GET', $this->findUrl('products', "/" . $category_id, $query));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
-			
+			$result = [];
 			if (isset($json['data'])) {
-				$product_list = $json['data'];
-				return $product_list;
+				$result['list'] = $json['data'];
+			}
+			if (isset($json['meta']) && isset($json['meta']['pagination'])) {
+				$result['pagination'] = $json['meta']['pagination'];
+			}
+			if (count($result) > 0) {
+				return $result;
 			}
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
