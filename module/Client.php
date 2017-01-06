@@ -21,7 +21,7 @@ class Client {
 	
 	private static $g_instance = null;
 	
-	private static $g_endpoint_url = "https://api.dropcart.nl";
+	private static $g_endpoint_url = "https://api.live.dropcart.nl";
 	private static $g_timeout = 60.0;
 	private static $g_connect_timeout = 30.0;
 	private static $g_customer_fields = ["first_name", "last_name", "email", "telephone", "shipping_first_name",
@@ -111,9 +111,11 @@ class Client {
 	public function __construct()
 	{
 		try {
-			$stack = new \GuzzleHttp\HandlerStack();
-			$stack->setHandler(\GuzzleHttp\choose_handler());
+			// Use static create method to use default Middleware
+			$stack = \GuzzleHttp\HandlerStack::create();
+			// Add authentication middleware
 			$stack->push($this->authHeaderMiddleware());
+			// Construct client with custom stack
 			$this->client = new \GuzzleHttp\Client(['handler' => $stack]);
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
@@ -176,7 +178,10 @@ class Client {
 		
 		try {
 			$request = new Request('GET', $this->findUrl('categories'));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			
