@@ -893,7 +893,7 @@ class Client {
 			if ($any instanceof RequestException) {
 				$response = $any->getResponse();
 				if ($response) {
-					$this->context['last_response'] = (string) $reponse->getBody();
+					$this->context['last_response'] = (string) $response->getBody();
 				} else {
 					$this->context['last_response'] = "Unknown";
 				}
