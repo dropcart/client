@@ -116,7 +116,7 @@ class Client {
 			// Add authentication middleware
 			$stack->push($this->authHeaderMiddleware());
 			// Construct client with custom stack
-			$this->client = new \GuzzleHttp\Client(['handler' => $stack]);
+			$this->client = new \GuzzleHttp\Client(['handler' => $stack, 'cert' => __DIR__ . '/../cacert.pem']);
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
