@@ -48,7 +48,7 @@ class ServiceProvider extends LaravelServiceProvider
 		$this->app->singleton('dropcart', function (Container $app) {
 			Client::setEndpoint($app->config('dropcart.endpoint'));
 			$client = Client::instance();
-			$client->auth($app->config('dropcart.key'), $app->config('country'));
+			$client->auth($app->config->get('dropcart.key'), $app->config->get('country'));
 
 			return $client;
 		});
