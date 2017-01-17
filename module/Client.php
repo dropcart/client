@@ -827,6 +827,7 @@ class Client {
 	 * 
 	 * @param unknown $reference
 	 * @param unknown $checksum
+	 * @return array 
 	 */
 	public function statusTransaction($reference, $checksum) {
 		try {
@@ -845,7 +846,11 @@ class Client {
 		}
 		throw $this->wrapException(new ClientException("Transaction status has no or too many results"));
 	}
-	
+
+	/**
+	 * @param $json
+	 * @return array
+	 */
 	private function loadTransactionResult($json) {
 		$result = [];
 		if (isset($json['meta']) && isset($json['meta']['shopping_bag'])) {
