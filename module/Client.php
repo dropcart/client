@@ -246,7 +246,10 @@ class Client {
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
-			$result = [];
+			$result = [
+				'list' => [],
+				'pagination' => []
+			];
 			if (isset($json['data'])) {
 				$result['list'] = $json['data'];
 			}
