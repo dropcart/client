@@ -780,7 +780,7 @@ class Client {
 		}
 		try {
 			$url = $this->findUrl('tools', "/get-payment-methods");
-			$request = new Request('POST', $url);
+			$request = new Request('GET', $url);
 			$response = $this->client->send($request, [
 				'timeout' => self::$g_timeout,
 				'connect_timeout' => self::$g_connect_timeout,
