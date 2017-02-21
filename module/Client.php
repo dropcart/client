@@ -775,11 +775,11 @@ class Client {
 	 * @param string $checksum
 	 * @param string $returnURL
 	 */
-	public function confirmTransaction($coding, $reference, $checksum, $returnURL) {
+	public function confirmTransaction($coding, $reference, $checksum, $returnURL, $method = 'ideal', $method_data = []) {
 		// Round-trip to verify and normalize code
 		$bag = $this->readShoppingBagInternal($coding);
 		$coding = $this->writeShoppingBagInternal($bag);
-		$postData = ['return_url' => $returnURL];
+		$postData = ['return_url' => $returnURL, 'method' => $method, 'method_data' => $method_data];
 		try {
 			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
 			$request = new Request('POST', $url);
