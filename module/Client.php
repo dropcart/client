@@ -746,6 +746,58 @@ class Client {
 		}
 		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
 	}
+
+	/**
+	 * Get the payment methods you've accepted on Mollie.
+	 *
+	 * <p>
+	 * Login to Mollie and open the website profile belonging to the installation.
+	 * Set the Payments Methods you want to accept to 'on'.
+	 * </p>
+	 *
+	 * <p>
+	 * Returns an array with payment method objects.<br>
+	 * ->id<br>
+	 * ->name<br>
+	 * ->logo<br>
+	 * <i>optional</i>
+	 * ->extra's<br>
+	 *    ->fields [ <br>
+	 * 			-> type (selectable)<br>
+	 * 			-> values (object, or reference)<br>
+	 * 			-> id<br>
+	 * 			-> name<br>
+	 * 	]
+	 * </p>
+	 */
+	public function getPaymentMethods()
+	{
+		$postData = [];
+		foreach (self::$g_customer_fields as $field) {
+			if (isset($customerDetails[$field])) {
+				$postData[$field] = $customerDetails[$field];
+			}
+		}
+		try {
+			$url = $this->findUrl('tools', "/get-payment-methods");
+			$request = new Request('POST', $url);
+			$response = $this->client->send($request, [
+				'timeout' => self::$g_timeout,
+				'connect_timeout' => self::$g_connect_timeout,
+				'form_params' => $postData
+			]);
+			$this->checkResult($response);
+			$result = json_decode($response->getBody(), true);
+
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("There are no payment methods available."));
+
+	}
 	
 	/**
 	 * Confirm a transaction for handling an order. This call MUST only be called when the Web client consents with the order.
