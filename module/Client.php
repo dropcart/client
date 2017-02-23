@@ -44,13 +44,14 @@ class Client {
 	private $client;
 	
 	private $public_key = null;
+	private $private_key = null;
 	private $country = null;
 	
 	private function authHeaderMiddleware() {
 		$that = $this;
 		return function (callable $handler) use ($that) {
 			return function (RequestInterface $request, array $options) use ($handler, $that) {
-				$token = [ 'iss' => $that->public_key ];
+				$token = [ 'iss' => $that->public_key, 'iat' => time() ];
 				$jwt = JWT::encode($token, $that->public_key);
 				$request = $request->withHeader("Authorization", "Bearer " . $jwt);
 				return $handler($request, $options);
@@ -139,14 +140,17 @@ class Client {
 	 * </p>
 	 * 
 	 * @param string $public_key
+	 * @param string $private_key
 	 * @param string $country
 	 */
-	public function auth($public_key, $country)
+	public function auth($public_key, $private_key, $country)
 	{
 		try {
 			if ($this->public_key != null) return;
-			
+			if ($this->private_key != null) return;
+
 			$this->public_key = $public_key;
+			$this->private_key = $private_key;
 			$this->country = $country;
 			
 			// Eagerly load categories, so we can choose default category
