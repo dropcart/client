@@ -11,6 +11,7 @@
 return [
 
 	'key' 		=> env('DROPCART_KEY', ''),
+	'secret'	=> env('DROPCART_SECRET', ''),
 	'country'	=> env('DROPCART_COUNTRY', 'NL'),
 	'endpoint'	=> env('DROPCART_ENDPOINT', 'https://api.dropcart.nl'),
 
