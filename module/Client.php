@@ -230,7 +230,7 @@ class Client {
 	 * 
 	 * @param mixed $category
 	 */
-	public function getProductListing($category = null, $page = null)
+	public function getProductListing($category = null, $page = null, $show_unavailable_items = false, $brands = [], $query = null)
 	{
 		if (is_null($category) && $this->default_category) {
 			$category = $this->default_category;
@@ -244,6 +244,9 @@ class Client {
 		
 		$query = [];
 		if ($page) $query['page'] = $page;
+		if ($show_unavailable_items) $query['show_unavailable_items'] = true;
+		if (!empty($brands)) $query['brands'] = implode(",", $brands);
+		if ($query) $query['query'] = $query;
 		
 		try {
 			$request = new Request('GET', $this->findUrl('products', "/" . $category_id, $query));
@@ -252,13 +255,17 @@ class Client {
 			$json = json_decode($response->getBody(), true);
 			$result = [
 				'list' => [],
-				'pagination' => []
+				'pagination' => [],
+				'brands' => [],
 			];
 			if (isset($json['data'])) {
 				$result['list'] = $json['data'];
 			}
 			if (isset($json['meta']) && isset($json['meta']['pagination'])) {
 				$result['pagination'] = $json['meta']['pagination'];
+			}
+			if (isset($json['meta']) && isset($json['meta']['brands'])) {
+				$result['brands'] = $json['meta']['brands'];
 			}
 			if (count($result) > 0) {
 				return $result;
@@ -320,51 +327,6 @@ class Client {
 			throw $this->wrapException(new ClientException("Supplied product is invalid"));
 		}
 		return $product_id;
-	}
-	
-	/**
-	 * Performs a search based on the supplied search critera.
-	 * 
-	 * <p>
-	 * Makes a blocking request with the Dropcart API server to retrieve the product information associated with
-	 * the account currently authenticated with.
-	 * </p>
-	 * 
-	 * <p>
-	 * The parameter supplied specifies a free-text search query. The text will be matched with product name, description, ean or sku.
-	 * The parameter is explicitly cast to a string if it is not of that type. Supplying an empty string is an error.
-	 * </p>
-	 * 
-	 * <p>
-	 * Returns an array of products, one element for each product. The product itself is an associative array with the summary fields of a product. These fields are:
-	 * `id`, `ean`, `sku`, `shipping_days`, `image`, `price`, `in_stock`, `name`, `description`. See the API documentation for information concering the
-	 * value ranges of these fields. The return value is similar to that of `getProductListing`.
-	 * </p>
-	 * 
-	 * @param string $query
-	 */
-	public function findProductListing($query) {
-		if (!is_string($query)) {
-			$query = (string) $query;
-		}
-		if (strlen($query) == 0) {
-			throw $this->wrapException(new ClientException("Provided query has no length"));
-		}
-		
-		try {
-			$request = new Request('GET', $this->findUrl('search', "/" . urlencode($query)));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
-			$this->checkResult($response);
-			$json = json_decode($response->getBody(), true);
-		
-			if (isset($json['data'])) {
-				$product_list = $json['data'];
-				return $product_list;
-			}
-		} catch (\Exception $any) {
-			throw $this->wrapException($any);
-		}
-		throw $this->wrapException(new ClientException("Find product listing has no results"));
 	}
 	
 	// BEGIN SHOPPING BAG SHARED-CODE
