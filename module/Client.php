@@ -44,13 +44,14 @@ class Client {
 	private $client;
 	
 	private $public_key = null;
+	private $private_key = null;
 	private $country = null;
 	
 	private function authHeaderMiddleware() {
 		$that = $this;
 		return function (callable $handler) use ($that) {
 			return function (RequestInterface $request, array $options) use ($handler, $that) {
-				$token = [ 'iss' => $that->public_key ];
+				$token = [ 'iss' => $that->public_key, 'iat' => time() ];
 				$jwt = JWT::encode($token, $that->public_key);
 				$request = $request->withHeader("Authorization", "Bearer " . $jwt);
 				return $handler($request, $options);
@@ -139,14 +140,17 @@ class Client {
 	 * </p>
 	 * 
 	 * @param string $public_key
+	 * @param string $private_key
 	 * @param string $country
 	 */
-	public function auth($public_key, $country)
+	public function auth($public_key, $private_key, $country)
 	{
 		try {
 			if ($this->public_key != null) return;
-			
+			if ($this->private_key != null) return;
+
 			$this->public_key = $public_key;
+			$this->private_key = $private_key;
 			$this->country = $country;
 			
 			// Eagerly load categories, so we can choose default category
@@ -746,6 +750,58 @@ class Client {
 		}
 		throw $this->wrapException(new ClientException("Transaction update has no or too many results"));
 	}
+
+	/**
+	 * Get the payment methods you've accepted on Mollie.
+	 *
+	 * <p>
+	 * Login to Mollie and open the website profile belonging to the installation.
+	 * Set the Payments Methods you want to accept to 'on'.
+	 * </p>
+	 *
+	 * <p>
+	 * Returns an array with payment method objects.<br>
+	 * ->id<br>
+	 * ->name<br>
+	 * ->logo<br>
+	 * <i>optional</i>
+	 * ->extra's<br>
+	 *    ->fields [ <br>
+	 * 			-> type (selectable)<br>
+	 * 			-> values (object, or reference)<br>
+	 * 			-> id<br>
+	 * 			-> name<br>
+	 * 	]
+	 * </p>
+	 */
+	public function getPaymentMethods()
+	{
+		$postData = [];
+		foreach (self::$g_customer_fields as $field) {
+			if (isset($customerDetails[$field])) {
+				$postData[$field] = $customerDetails[$field];
+			}
+		}
+		try {
+			$url = $this->findUrl('tools', "/get-payment-methods");
+			$request = new Request('GET', $url);
+			$response = $this->client->send($request, [
+				'timeout' => self::$g_timeout,
+				'connect_timeout' => self::$g_connect_timeout,
+				'form_params' => $postData
+			]);
+			$this->checkResult($response);
+			$result = json_decode($response->getBody(), true);
+
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("There are no payment methods available."));
+
+	}
 	
 	/**
 	 * Confirm a transaction for handling an order. This call MUST only be called when the Web client consents with the order.
@@ -775,11 +831,11 @@ class Client {
 	 * @param string $checksum
 	 * @param string $returnURL
 	 */
-	public function confirmTransaction($coding, $reference, $checksum, $returnURL) {
+	public function confirmTransaction($coding, $reference, $checksum, $returnURL, $method = 'ideal', $method_data = []) {
 		// Round-trip to verify and normalize code
 		$bag = $this->readShoppingBagInternal($coding);
 		$coding = $this->writeShoppingBagInternal($bag);
-		$postData = ['return_url' => $returnURL];
+		$postData = ['return_url' => $returnURL, 'method' => $method, 'method_data' => $method_data];
 		try {
 			$url = $this->findUrl('pay', "/" . urlencode($reference) . "/" . urlencode($coding) . "/" . urlencode($checksum));
 			$request = new Request('POST', $url);
