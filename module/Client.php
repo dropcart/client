@@ -242,14 +242,14 @@ class Client {
 			$category_id = $category['id'];
 		}
 		
-		$query = [];
-		if ($page) $query['page'] = $page;
-		if ($show_unavailable_items) $query['show_unavailable_items'] = true;
-		if (!empty($brands)) $query['brands'] = implode(",", $brands);
-		if ($query) $query['query'] = $query;
+		$param = [];
+		if ($page) $param['page'] = (string) $page;
+		if ($show_unavailable_items) $param['show_unavailable_items'] = 'true';
+		if (!empty($brands)) $param['brands'] = implode(",", $brands);
+		if ($query) $param['query'] = (string) $query;
 		
 		try {
-			$request = new Request('GET', $this->findUrl('products', "/" . $category_id, $query));
+			$request = new Request('GET', $this->findUrl('products', "/" . $category_id, $param));
 			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
