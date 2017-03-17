@@ -52,7 +52,7 @@ class Client {
 		return function (callable $handler) use ($that) {
 			return function (RequestInterface $request, array $options) use ($handler, $that) {
 				$token = [ 'iss' => $that->public_key, 'iat' => time() ];
-				$jwt = JWT::encode($token, $that->public_key);
+				$jwt = JWT::encode($token, $that->private_key);
 				$request = $request->withHeader("Authorization", "Bearer " . $jwt);
 				return $handler($request, $options);
 			};
