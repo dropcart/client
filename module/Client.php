@@ -24,6 +24,8 @@ class Client {
 	private static $g_endpoint_url = "https://api.live.dropcart.nl";
 	private static $g_timeout = 60.0;
 	private static $g_connect_timeout = 30.0;
+	private static $g_verify = __DIR__ . '/../cacert.pem'; // Set this to false if you encounter "CURL error 60".
+	
 	private static $g_customer_fields = ["first_name", "last_name", "email", "telephone", "shipping_first_name",
 			"shipping_last_name", "shipping_company", "shipping_address_1", "shipping_address_2", "shipping_city",
 			"shipping_postcode", "shipping_country", "billing_first_name", "billing_last_name", "billing_company",
@@ -117,7 +119,7 @@ class Client {
 			// Add authentication middleware
 			$stack->push($this->authHeaderMiddleware());
 			// Construct client with custom stack
-			$this->client = new \GuzzleHttp\Client(['handler' => $stack, 'verify' => __DIR__ . '/../cacert.pem']);
+			$this->client = new \GuzzleHttp\Client(['handler' => $stack]);
 		} catch (\Exception $any) {
 			throw $this->wrapException($any);
 		}
@@ -184,7 +186,8 @@ class Client {
 			$request = new Request('GET', $this->findUrl('categories'));
 			$response = $this->client->send($request, [
 					'timeout' => self::$g_timeout,
-					'connect_timeout' => self::$g_connect_timeout
+					'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
 			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
@@ -210,6 +213,62 @@ class Client {
 	
 	/**
 	 * Retrieves a list of products.
+	 *
+	 * <p>
+	 * Makes a blocking request with the Dropcart API server to retrieve the products associated with
+	 * the account currently authenticated with.
+	 * </p>
+	 *
+	 * <p>
+	 * Returns an array of products, one element for each product. The product itself is an associative array with the summary fields of a product. These fields are:
+	 * `id`, `ean`, `sku`, `shipping_days`, `image`, `price`, `in_stock`, `name`, `description`. See the API documentation for information concering the
+	 * value ranges of these fields. The return value is similar to that of `findProductListing`.
+	 * </p>
+	 *
+	 * @param mixed $category
+	 */
+	public function getProductListingBySearch($page = null, $show_unavailable_items = false, $brands = [], $query = null)
+	{
+		$param = [];
+		if ($page) $param['page'] = (string) $page;
+		if ($show_unavailable_items) $param['show_unavailable_items'] = 'true';
+		if (!empty($brands)) $param['brands'] = implode(",", $brands);
+		if ($query) $param['query'] = (string) $query;
+	
+		try {
+			$request = new Request('GET', $this->findUrl('products', '/all', $param));
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+			]);
+			$this->checkResult($response);
+			$json = json_decode($response->getBody(), true);
+			$result = [
+					'list' => [],
+					'pagination' => [],
+					'brands' => [],
+			];
+			if (isset($json['data'])) {
+				$result['list'] = $json['data'];
+			}
+			if (isset($json['meta']) && isset($json['meta']['pagination'])) {
+				$result['pagination'] = $json['meta']['pagination'];
+			}
+			if (isset($json['meta']) && isset($json['meta']['brands'])) {
+				$result['brands'] = $json['meta']['brands'];
+			}
+			if (count($result) > 0) {
+				return $result;
+			}
+		} catch (\Exception $any) {
+			throw $this->wrapException($any);
+		}
+		throw $this->wrapException(new ClientException("Product listing has no results"));
+	}
+	
+	/**
+	 * Retrieves a list of products.
 	 * 
 	 * <p>
 	 * Makes a blocking request with the Dropcart API server to retrieve the products associated with
@@ -230,7 +289,7 @@ class Client {
 	 * 
 	 * @param mixed $category
 	 */
-	public function getProductListing($category = null, $page = null, $show_unavailable_items = false, $brands = [], $query = null)
+	public function getProductListingByCategory($category = null, $page = null, $show_unavailable_items = false, $brands = [], $query = null)
 	{
 		if (is_null($category) && $this->default_category) {
 			$category = $this->default_category;
@@ -250,7 +309,11 @@ class Client {
 		
 		try {
 			$request = new Request('GET', $this->findUrl('products', "/" . $category_id, $param));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = [
@@ -304,7 +367,11 @@ class Client {
 		$product_id = $this->productToInt($product);
 		try {
 			$request = new Request('GET', $this->findUrl('product', "/" . $product_id));
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 				
@@ -592,7 +659,8 @@ class Client {
 			$response = $this->client->send($request, [
 					'timeout' => self::$g_timeout,
 					'connect_timeout' => self::$g_connect_timeout,
-					'form_params' => $postData
+					'form_params' => $postData,
+					'verify' => self::$g_verify
 			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
@@ -633,7 +701,8 @@ class Client {
 			$request = new Request('GET', $url);
 			$response = $this->client->send($request, [
 					'timeout' => self::$g_timeout,
-					'connect_timeout' => self::$g_connect_timeout
+					'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
 			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
@@ -698,7 +767,8 @@ class Client {
 			$response = $this->client->send($request, [
 					'timeout' => self::$g_timeout,
 					'connect_timeout' => self::$g_connect_timeout,
-					'form_params' => $postData
+					'form_params' => $postData,
+					'verify' => self::$g_verify
 			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
@@ -750,7 +820,8 @@ class Client {
 			$response = $this->client->send($request, [
 				'timeout' => self::$g_timeout,
 				'connect_timeout' => self::$g_connect_timeout,
-				'form_params' => $postData
+				'form_params' => $postData,
+					'verify' => self::$g_verify
 			]);
 			$this->checkResult($response);
 			$result = json_decode($response->getBody(), true);
@@ -804,7 +875,8 @@ class Client {
 			$response = $this->client->send($request, [
 					'timeout' => self::$g_timeout,
 					'connect_timeout' => self::$g_connect_timeout,
-					'form_params' => $postData
+					'form_params' => $postData,
+					'verify' => self::$g_verify
 			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
@@ -854,7 +926,12 @@ class Client {
 		try {
 			$url = $this->findUrl('status', "/" . urlencode($reference) . "/" . urlencode($checksum));
 			$request = new Request('GET', $url);
-			$response = $this->client->send($request, ['timeout' => self::$g_timeout, 'connect_timeout' => self::$g_connect_timeout]);
+			$response = $this->client->send($request, [
+					'timeout' => self::$g_timeout,
+					'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+					
+			]);
 			$this->checkResult($response);
 			$json = json_decode($response->getBody(), true);
 			$result = $this->loadTransactionResult($json);
@@ -866,6 +943,42 @@ class Client {
 			throw $this->wrapException($any);
 		}
 		throw $this->wrapException(new ClientException("Transaction status has no or too many results"));
+	}
+	
+	/**
+	 * IMAGE ROUTES (LOGO / BRANDS)
+	 */
+	public function getLogoDefault()
+	{
+		$request = new Request('GET', $this->findUrl('store/logo/logo-default.png'));
+		$response = $this->client->send($request, [
+				'timeout' => self::$g_timeout,
+				'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+		]);
+		return $response->getBody();
+	}
+	
+	public function getLogoSquare()
+	{
+		$request = new Request('GET', $this->findUrl('store/logo/logo-square.png'));
+		$response = $this->client->send($request, [
+				'timeout' => self::$g_timeout,
+				'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+		]);
+		return $response->getBody();
+	}
+	
+	public function getLogo()
+	{
+		$request = new Request('GET', $this->findUrl('store/logo/logo.png'));
+		$response = $this->client->send($request, [
+				'timeout' => self::$g_timeout,
+				'connect_timeout' => self::$g_connect_timeout,
+					'verify' => self::$g_verify
+		]);
+		return $response->getBody();
 	}
 
 	/**
