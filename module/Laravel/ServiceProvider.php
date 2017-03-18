@@ -23,7 +23,7 @@ class ServiceProvider extends LaravelServiceProvider
 	 */
 	public function boot()
 	{
-		$source = realpath(__DIR__ . '/dropcart.php');
+		$source = realpath($raw = __DIR__ . '/dropcart.php') ?: $raw;
 
 		// Check if the application is a Laravel OR Lumen instance to properly merge the configuration file.
 		if ($this->app instanceof LaravelApplication && $this->app->runningInConsole())
