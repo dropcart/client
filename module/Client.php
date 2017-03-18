@@ -6,6 +6,7 @@ use Psr\Http\Message\RequestInterface;
 use Firebase\JWT\JWT;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Exception\RequestException;
+use Bugsnag\BugsnagLaravel\Facades\Bugsnag;
 
 /**
  * Dropcart client access object
@@ -68,6 +69,13 @@ class Client {
 			return;
 		}
 		throw new ClientException("Server responded with an error");
+	}
+	
+	private function send(RequestInterface $request, $params) {
+		Bugsnag::leaveBreadcrumb('Client call', \Bugsnag\Breadcrumbs\Breadcrumb::MANUAL_TYPE, ['uri' => $request->getUri()]);
+		$result = $this->client($request, $params);
+		Bugsnag::leaveBreadcrumb('Server response', \Bugsnag\Breadcrumbs\Breadcrumb::MANUAL_TYPE, ['data' => mb_strimwidth((string) $result->getBody(), 0, 130, "...")]);
+		return $result;
 	}
 	
 	/**
