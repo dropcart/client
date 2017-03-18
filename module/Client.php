@@ -24,7 +24,7 @@ class Client {
 	private static $g_endpoint_url = "https://api.live.dropcart.nl";
 	private static $g_timeout = 60.0;
 	private static $g_connect_timeout = 30.0;
-	private static $g_verify = __DIR__ . '/../cacert.pem'; // Set this to false if you encounter "CURL error 60".
+	private static $g_verify = false;
 	
 	private static $g_customer_fields = ["first_name", "last_name", "email", "telephone", "shipping_first_name",
 			"shipping_last_name", "shipping_company", "shipping_address_1", "shipping_address_2", "shipping_city",
