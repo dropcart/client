@@ -235,14 +235,13 @@ class Client {
 	 *
 	 * @param mixed $category
 	 */
-	public function getProductListingBySearch($page = null, $show_unavailable_items = false, $brands = [], $query = null, $arrayQuery = null)
+	public function getProductListingBySearch($page = null, $show_unavailable_items = false, $brands = [], $query = null)
 	{
 		$param = [];
 		if ($page) $param['page'] = (string) $page;
 		if ($show_unavailable_items) $param['show_unavailable_items'] = 'true';
 		if (!empty($brands)) $param['brands'] = implode(",", $brands);
 		if ($query) $param['query'] = (string) $query;
-		if ($arrayQuery) $param['array_query'] = (array) $arrayQuery;
 	
 		try {
 			$request = new Request('GET', $this->findUrl('products', '/all', $param));
